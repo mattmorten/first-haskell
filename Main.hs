@@ -5,37 +5,46 @@ data Value = Num Int | Ace | Jack | Queen | King deriving (Eq, Show, Ord)
 type Card = (Value,Suit)
 type Hand = [Card] 
 
-groupByValue :: Hand -> Hand -> [[Card]] -> [[Card]]
-groupByValue [] curr result = curr : result
-groupByValue ((x1,y1) : []) curr result = ((x1,y1) : curr) : result
-groupByValue ((x1,y1) : (x2,y2) : xs) curr result
-	| x1 == x2 = groupByValue ((x2,y2) : xs) ((x1,y1) : curr) result
-	| otherwise = groupByValue ((x2,y2) : xs) [] (((x1,y1) : curr) : result)
+-- Equality
+valueEquals :: Card -> Card -> Bool
+valueEquals (a, _) (b, _) = a == b
 
-groupValues :: Hand -> [[Card]]
-groupValues x = sort (groupByValue (sort x) [] []) 
+suitEquals :: Card -> Card -> Bool
+suitEquals (_, a) (_, b) = a == b
 
-multipleValue :: Int -> Hand -> Maybe Hand
-multipleValue c x = 
+multipleKind :: Int -> (Card -> Card -> Bool) -> Hand -> Maybe Hand
+multipleKind number eqFn x = 
 	     let 
-             groups = groupValues x
-             thePair = filter (\n -> length n == c) groups
+             groups = groupBy eqFn x
+             thePair = filter (\n -> length n == number) groups
 		 in case thePair of
              [] -> Nothing
              y -> Just $ head y
 
 
 pair :: Hand -> Maybe Hand
-pair = multipleValue 2
+pair = multipleKind 2 valueEquals
 
 three :: Hand -> Maybe Hand
-three = multipleValue 3
+three = multipleKind 3 valueEquals
 
 four :: Hand -> Maybe Hand
-four = multipleValue 4
+four = multipleKind 4 valueEquals
+
+flush :: Hand -> Maybe Hand
+flush = multipleKind 5 suitEquals
 
 scores :: [(Hand -> Maybe Hand)]
-scores = [pair, three, four]
+scores = [pair, three, four, flush]
 
 main :: IO () 
-main = print $ map (\n -> n [(Jack,H), ((Num 5),D), ((Num 7),C), ((Num 5),H)]) scores
+
+main = 
+	let
+		hand = sort ([(Jack,H), ((Num 5),D), ((Num 7),H), ((Num 5),H), (Jack,C)])
+	in do
+		print $ valueEquals (Jack, H) (Jack, D)
+		print $ map (\x -> x (hand)) scores
+
+
+
