@@ -1,9 +1,23 @@
 import Data.List
 
-data Suit = C | S | D | H deriving (Eq, Show, Ord)
-data Value = Num Int | Jack | Queen | King | Ace deriving (Eq, Show, Ord)
+-- Types
+data Suit = C | S | D | H deriving (Eq, Ord)
+data Value = Val Int | Jack | Queen | King | Ace deriving (Eq, Ord)
 type Card = (Value,Suit)
 type Hand = [Card] 
+
+instance Show Suit where
+	show C = "Clubs"
+	show S = "Spades"
+	show H = "Hearts"
+	show D = "Diamonds"
+
+instance Show Value where
+	show (Val x) = show x
+	show Jack = "Jack"
+	show Queen = "Queen"
+	show King = "King"
+	show Ace = "Ace"
 
 -- Equality
 valueEquals :: Card -> Card -> Bool
@@ -14,12 +28,12 @@ suitEquals (_, a) (_, b) = a == b
 
 -- Successor
 isSuccessor :: Card -> Card -> Bool
-isSuccessor (Ace,_) ((Num 2),_) = True
-isSuccessor ((Num 10),_) (Jack,_) = True
+isSuccessor (Ace,_) ((Val 2),_) = True
+isSuccessor ((Val 10),_) (Jack,_) = True
 isSuccessor (Jack,_) (Queen,_) = True
 isSuccessor (Queen,_) (King,_) = True
 isSuccessor (King,_) (Ace,_) = True
-isSuccessor ((Num a), _) ((Num b),_) = a == (b - 1)
+isSuccessor ((Val a), _) ((Val b),_) = a == (b - 1)
 isSuccessor _ _ = False
 
 multipleKind :: Int -> (Card -> Card -> Bool) -> Hand -> Maybe Hand
@@ -47,14 +61,21 @@ flush = multipleKind 5 suitEquals
 straight :: Hand -> Maybe Hand
 straight = multipleKind 5 isSuccessor
 
+fullHouse :: Hand -> Maybe Hand
+fullHouse x = 
+	do
+		a <- pair x
+		b <- three x
+		Just (a ++ b)
+
 scores :: [(Hand -> Maybe Hand)]
-scores = [pair, three, four, flush, straight]
+scores = [pair, three, four, flush, straight, fullHouse]
 
 main :: IO () 
 
 main = 
 	let
-		hand = sort ([(Jack,H), ((Num 5),D), ((Num 6),H), ((Num 5),H), (Jack,C)])
+		hand = sort ([(Jack,H), ((Val 5),D), ((Val 5),C), ((Val 5),H), (Jack,C)])
 	in do
 		print $ valueEquals (Jack, H) (Jack, D)
 		print $ isSuccessor (Jack, H) (King, D)
