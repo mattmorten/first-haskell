@@ -26,16 +26,6 @@ valueEquals (a, _) (b, _) = a == b
 suitEquals :: Card -> Card -> Bool
 suitEquals (_, a) (_, b) = a == b
 
--- Successor
-isSuccessor :: Card -> Card -> Bool
-isSuccessor (Ace,_) ((Val 2),_) = True
-isSuccessor ((Val 10),_) (Jack,_) = True
-isSuccessor (Jack,_) (Queen,_) = True
-isSuccessor (Queen,_) (King,_) = True
-isSuccessor (King,_) (Ace,_) = True
-isSuccessor ((Val a), _) ((Val b),_) = a == (b - 1)
-isSuccessor _ _ = False
-
 multipleKind :: Int -> (Card -> Card -> Bool) -> Hand -> Maybe Hand
 multipleKind number eqFn x = 
 	     let 
@@ -59,7 +49,7 @@ flush :: Hand -> Maybe Hand
 flush = multipleKind 5 suitEquals
 
 straight :: Hand -> Maybe Hand
-straight = multipleKind 5 isSuccessor
+straight = multipleKind 5 (>)
 
 fullHouse :: Hand -> Maybe Hand
 fullHouse x = 
@@ -78,9 +68,7 @@ main =
 		hand = sort ([(Jack,H), ((Val 5),D), ((Val 5),C), ((Val 5),H), (Jack,C)])
 	in do
 		print $ valueEquals (Jack, H) (Jack, D)
-		print $ isSuccessor (Jack, H) (King, D)
 		print $ map (\x -> x (hand)) scores
-		print $ multipleKind 2 isSuccessor hand
 
 
 
