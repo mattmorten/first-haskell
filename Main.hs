@@ -6,7 +6,10 @@ import Data.Maybe
 data Resource = Sheep | Wheat | Ore | Brick | Wood deriving (Show, Enum)
 data Tile = Grass | Plains | Mountains | Clay | Forest | Desert deriving (Show, Enum)
 
+data Piece = Settlement | City
+
 type Board = [[Tile]]
+type Coins = [[Coin]]
 
 
 type Index = Int
@@ -15,6 +18,10 @@ type MaxIndex = Int
 type BoardSquare = (Index,Index)
 type Intersection = (Index,Index)
 type Robber = BoardSquare
+
+type Rolled = Int
+
+type Coin = Int
 
 -- func
 
@@ -32,14 +39,33 @@ tileQuantities Clay = 3
 tileQuantities Mountains = 4 -- change
 tileQuantities _ = 4
 
+coinQuantities :: Coin -> Int
+coinQuantities 2 = 1
+coinQuantities 12 = 1
+coinQuantities 7 = 0
+coinQuantities _ = 2
+
+pieceValue :: Piece -> Int
+pieceValue Settlement = 1
+pieceValue City = 2
+
 allTiles :: [Tile]
 allTiles = concatMap (\tile -> replicate (tileQuantities tile) tile) [Grass ..]
+
+allCoins :: [Coin]
+allCoins = concatMap (\coin -> replicate (coinQuantities coin) coin) [2 .. 12]
 
 placeTiles :: [Tile] -> Board
 placeTiles tiles = chunk 5 tiles
 
+placeCoins :: [Coin] -> Coins
+placeCoins coins = chunk 5 coins
+
 createBoard :: Board
 createBoard = placeTiles $ allTiles
+
+createCoins :: Coins
+createCoins = placeCoins $ allCoins
 
 ix2Tile :: MaxIndex -> Index -> [Index]
 ix2Tile _ 0 = [0]
@@ -55,26 +81,40 @@ valueAt x list
 	| x >= length list = Nothing
 	| otherwise = Just $ list !! x
 
-
-valueAt2 :: Board -> BoardSquare -> Maybe Tile
-valueAt2 board (x,y) = do
+tileAt :: Board -> BoardSquare -> Maybe Tile
+tileAt board (x,y) = do
 	row <- valueAt y board
 	valueAt x row
 
-claimResource :: Board -> Robber -> BoardSquare -> Maybe Resource
-claimResource board robber square 
-	| robber == square = Nothing
-	| otherwise = do 
-		tile <- valueAt2 board square
-		tile2Resource tile
+coinAt :: Coins -> BoardSquare -> Maybe Coin
+coinAt board (x,y) = do
+	row <- valueAt y board
+	valueAt x row
 
-getResourcesForIntersection :: Intersection -> Board -> Robber -> [Resource]
-getResourcesForIntersection (x,y) board robber =
+claimResources :: Board -> Coins -> Robber -> Rolled -> Piece -> BoardSquare -> [Resource]
+claimResources board coins robber rolled piece square 
+	| robber == square = []
+	| otherwise = 
+		let
+			resource = do 
+				tile <- tileAt board square
+				coin <- coinAt coins square
+				tile2Resource tile
+		in
+			case (resource, (coinAt coins square)) of
+				((Just r), (Just c)) -> if (rolled == c) 
+					then (replicate (pieceValue piece) r)
+					else []
+				_ -> []
+
+
+getResourcesForIntersection :: Board -> Coins -> Robber -> Rolled -> Piece -> Intersection -> [Resource]
+getResourcesForIntersection board coins robber rolled piece (x,y) =
 	let 
 		-- [BoardSquare]
 		boardSquares = cartProd (ix2Tile 5 x) (ix2Tile 4 y)
 		-- [Resource]
-		resources = catMaybes $ map (claimResource board robber) boardSquares
+		resources =  concatMap (claimResources board coins robber rolled piece) boardSquares
 	in
 		resources
 
@@ -87,7 +127,8 @@ main :: IO ()
 main = 
 	let
 		board = createBoard
-		resources = getResourcesForIntersection (4,3) board (3,2)
+		coins = createCoins
+		resources = getResourcesForIntersection board coins (3,2) 10 City (4,3)
 	in do
 		print $ resources
 		
