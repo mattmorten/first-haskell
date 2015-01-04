@@ -10,7 +10,9 @@ data Piece = Settlement | City
 
 type Board = [[Tile]]
 type Coins = [[Coin]]
+type Pieces = [[Piece]]
 
+type Road = (Intersection, Intersection)
 
 type Index = Int
 type MaxIndex = Int
@@ -90,6 +92,33 @@ coinAt :: Coins -> BoardSquare -> Maybe Coin
 coinAt board (x,y) = do
 	row <- valueAt y board
 	valueAt x row
+
+validIntersection :: Pieces -> Intersection -> Bool
+validIntersection pieces (x,y) 
+	| x < 0 || y < 0 = False
+	| y >= (length pieces) = False
+	| x >= (length (head pieces)) = False
+	| otherwise = True
+
+neighbourIntersections :: Pieces -> Intersection -> [Intersection]
+neighbourIntersections pieces (x,y) =
+	filter (validIntersection pieces) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+
+pieceAt :: Pieces -> Intersection -> Maybe Piece
+pieceAt pieces (x,y) = do
+	row <- valueAt y pieces
+	valueAt x row
+
+emptyIntersection :: Pieces -> Intersection -> Bool
+emptyIntersection pieces intersection = case (pieceAt pieces intersection) of
+	Nothing -> True
+	_ -> False
+
+pieceValid :: Pieces -> Intersection -> Bool
+pieceValid pieces intersection = 
+	isNothing (pieceAt pieces intersection) &&
+	all (emptyIntersection pieces) (neighbourIntersections pieces intersection)
+
 
 claimResources :: Board -> Coins -> Robber -> Rolled -> Piece -> BoardSquare -> [Resource]
 claimResources board coins robber rolled piece square 
