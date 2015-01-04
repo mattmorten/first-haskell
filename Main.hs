@@ -3,14 +3,23 @@ import Data.List.Split
 import Data.Maybe
 
 -- types
-data Resource = Sheep | Wheat | Ore | Brick | Wood deriving (Show, Enum)
+data Resource = Sheep | Wheat | Ore | Brick | Wood deriving (Show, Enum, Eq)
 data Tile = Grass | Plains | Mountains | Clay | Forest | Desert deriving (Show, Enum)
 
-data Piece = Settlement | City
+data Piece = Settlement | City | DevelopmentCard | RoadPiece deriving (Show, Eq)
+
+costOf :: Piece -> [Resource]
+costOf Settlement = [Wheat, Brick, Sheep, Wood]
+costOf City = [Ore, Ore, Ore, Wheat, Wheat]
+costOf RoadPiece = [Wood, Brick]
+costOf DevelopmentCard = [Wheat, Ore, Sheep]
+
 
 type Board = [[Tile]]
 type Coins = [[Coin]]
 type Pieces = [[Piece]]
+
+type Hand = [Resource]
 
 type Road = (Intersection, Intersection)
 
@@ -50,6 +59,10 @@ coinQuantities _ = 2
 pieceValue :: Piece -> Int
 pieceValue Settlement = 1
 pieceValue City = 2
+
+purchaseOptions :: [Piece]
+purchaseOptions = [RoadPiece, DevelopmentCard, Settlement, City]
+
 
 allTiles :: [Tile]
 allTiles = concatMap (\tile -> replicate (tileQuantities tile) tile) [Grass ..]
@@ -148,6 +161,15 @@ getResourcesForIntersection board coins robber rolled piece (x,y) =
 		resources
 
 
+handContains :: Hand -> [Resource] -> Bool
+handContains hand [] = True
+handContains hand (x:xs) 
+	| x `elem` hand = handContains (delete x hand) xs
+	| otherwise = False 
+
+handOptions :: Hand -> [Piece]
+handOptions hand = filter (\piece -> handContains hand (costOf piece)) purchaseOptions
+
 
 
 
@@ -159,5 +181,6 @@ main =
 		coins = createCoins
 		resources = getResourcesForIntersection board coins (3,2) 10 City (4,3)
 	in do
-		print $ resources
+		print $ handOptions [Wood,Brick,Ore,Ore,Ore,Wheat,Wheat]
+
 		
