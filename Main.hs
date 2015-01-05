@@ -7,17 +7,15 @@ data Resource = Sheep | Wheat | Ore | Brick | Wood deriving (Show, Enum, Eq)
 data Tile = Grass | Plains | Mountains | Clay | Forest | Desert deriving (Show, Enum)
 
 data Piece = Settlement | City | DevelopmentCard | RoadPiece deriving (Show, Eq)
+data Color = Red | White | Blue | Orange deriving (Show, Eq, Enum)
 
-costOf :: Piece -> [Resource]
-costOf Settlement = [Wheat, Brick, Sheep, Wood]
-costOf City = [Ore, Ore, Ore, Wheat, Wheat]
-costOf RoadPiece = [Wood, Brick]
-costOf DevelopmentCard = [Wheat, Ore, Sheep]
+data CardType = Knight | Monopoly | Plenty | Victory deriving (Show, Eq)
 
+data PlacedPiece = Placed Piece Color deriving (Show, Eq)
 
 type Board = [[Tile]]
 type Coins = [[Coin]]
-type Pieces = [[Piece]]
+type Pieces = [[Maybe PlacedPiece]]
 
 type Hand = [Resource]
 
@@ -59,9 +57,20 @@ coinQuantities _ = 2
 pieceValue :: Piece -> Int
 pieceValue Settlement = 1
 pieceValue City = 2
+pieceValue _ = 0
+
+cardValue :: CardType -> Int
+cardValue Victory = 1
+cardValue _ = 0
 
 purchaseOptions :: [Piece]
 purchaseOptions = [RoadPiece, DevelopmentCard, Settlement, City]
+
+costOf :: Piece -> [Resource]
+costOf Settlement = [Wheat, Brick, Sheep, Wood]
+costOf City = [Ore, Ore, Ore, Wheat, Wheat]
+costOf RoadPiece = [Wood, Brick]
+costOf DevelopmentCard = [Wheat, Ore, Sheep] 
 
 
 allTiles :: [Tile]
@@ -71,10 +80,10 @@ allCoins :: [Coin]
 allCoins = concatMap (\coin -> replicate (coinQuantities coin) coin) [2 .. 12]
 
 placeTiles :: [Tile] -> Board
-placeTiles tiles = chunk 5 tiles
+placeTiles tiles = chunksOf 5 tiles
 
 placeCoins :: [Coin] -> Coins
-placeCoins coins = chunk 5 coins
+placeCoins coins = chunksOf 5 coins
 
 createBoard :: Board
 createBoard = placeTiles $ allTiles
@@ -117,10 +126,11 @@ neighbourIntersections :: Pieces -> Intersection -> [Intersection]
 neighbourIntersections pieces (x,y) =
 	filter (validIntersection pieces) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 
-pieceAt :: Pieces -> Intersection -> Maybe Piece
+pieceAt :: Pieces -> Intersection -> Maybe PlacedPiece
 pieceAt pieces (x,y) = do
 	row <- valueAt y pieces
-	valueAt x row
+	piece <- valueAt x row
+	piece
 
 emptyIntersection :: Pieces -> Intersection -> Bool
 emptyIntersection pieces intersection = case (pieceAt pieces intersection) of
@@ -170,7 +180,19 @@ handContains hand (x:xs)
 handOptions :: Hand -> [Piece]
 handOptions hand = filter (\piece -> handContains hand (costOf piece)) purchaseOptions
 
+scorePlayer :: [Piece] -> [CardType] -> Int
+scorePlayer pieces cards =
+	(foldl (+) 0 $ map pieceValue pieces) + 
+	(foldl (+) 0 $ map cardValue cards)
 
+piecesPlayed :: Pieces -> Color -> [Piece]
+piecesPlayed pieces color = concatMap (\row -> 
+			let 
+				rowJust = catMaybes row
+				justColor = filter (\(Placed _ c) -> c == color) rowJust
+			in
+				map (\(Placed p _) -> p) justColor
+			) pieces
 
 
 main :: IO () 
@@ -180,7 +202,10 @@ main =
 		board = createBoard
 		coins = createCoins
 		resources = getResourcesForIntersection board coins (3,2) 10 City (4,3)
+		pieces = [[(Just  (Placed City Blue)), Nothing],
+				  [Nothing, (Just (Placed Settlement Blue))],
+				  [Nothing, (Just (Placed City Red))]]
 	in do
-		print $ handOptions [Wood,Brick,Ore,Ore,Ore,Wheat,Wheat]
+		print $ piecesPlayed pieces Orange
 
 		
