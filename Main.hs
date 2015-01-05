@@ -18,6 +18,7 @@ type Coins = [[Coin]]
 type Pieces = [[Maybe PlacedPiece]]
 
 type Hand = [Resource]
+type DevelopmentHand = [CardType]
 
 type Road = (Intersection, Intersection)
 
@@ -31,6 +32,8 @@ type Robber = BoardSquare
 type Rolled = Int
 
 type Coin = Int
+type Player = (Color, Hand, DevelopmentHand)
+type Game = (Board, Coins, Pieces, [Player])
 
 -- func
 
@@ -90,6 +93,9 @@ createBoard = placeTiles $ allTiles
 
 createCoins :: Coins
 createCoins = placeCoins $ allCoins
+
+createPieces :: Pieces
+createPieces = replicate 4 $ replicate 5 Nothing
 
 ix2Tile :: MaxIndex -> Index -> [Index]
 ix2Tile _ 0 = [0]
@@ -194,6 +200,18 @@ piecesPlayed pieces color = concatMap (\row ->
 				map (\(Placed p _) -> p) justColor
 			) pieces
 
+playerHasWon :: Int -> Bool
+playerHasWon 10 = True
+playerHasWon _ = False
+
+createGame :: Int -> Game
+createGame numPlayers =
+	let 
+		colors = take numPlayers [Red ..]
+		players = map (\color -> (color,[],[])) colors
+	in
+		(createBoard, createCoins, createPieces, players)
+
 
 main :: IO () 
 
@@ -206,6 +224,6 @@ main =
 				  [Nothing, (Just (Placed Settlement Blue))],
 				  [Nothing, (Just (Placed City Red))]]
 	in do
-		print $ piecesPlayed pieces Orange
+		print $ createGame 3
 
 		
