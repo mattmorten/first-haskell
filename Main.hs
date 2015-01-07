@@ -1,6 +1,8 @@
 import Data.List
 import Data.List.Split
 import Data.Maybe
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 
 -- types
 data Resource = Sheep | Wheat | Ore | Brick | Wood deriving (Show, Enum, Eq)
@@ -15,12 +17,14 @@ data PlacedPiece = Placed Piece Color deriving (Show, Eq)
 
 type Board = [[Tile]]
 type Coins = [[Coin]]
-type Pieces = [[Maybe PlacedPiece]]
+type Pieces = Map.Map (Int,Int) PlacedPiece
+type Roads = Map.Map RoadLocation PlacedPiece
 
 type Hand = [Resource]
 type DevelopmentHand = [CardType]
 
-type Road = (Intersection, Intersection)
+type RoadLocation = (Set.Set Intersection)
+
 
 type Index = Int
 type MaxIndex = Int
@@ -95,7 +99,17 @@ createCoins :: Coins
 createCoins = placeCoins $ allCoins
 
 createPieces :: Pieces
-createPieces = replicate 4 $ replicate 5 Nothing
+createPieces = Map.empty
+
+createRoads :: Roads
+createRoads = Map.empty
+
+roadLocationOf :: Intersection -> Intersection -> RoadLocation
+roadLocationOf i1 i2 =
+	let
+		s1 = Set.singleton i1
+	in
+		Set.insert i2 s1 
 
 ix2Tile :: MaxIndex -> Index -> [Index]
 ix2Tile _ 0 = [0]
@@ -121,32 +135,60 @@ coinAt board (x,y) = do
 	row <- valueAt y board
 	valueAt x row
 
-validIntersection :: Pieces -> Intersection -> Bool
-validIntersection pieces (x,y) 
+
+validIntersection :: Intersection -> Bool
+validIntersection (x,y) 
 	| x < 0 || y < 0 = False
-	| y >= (length pieces) = False
-	| x >= (length (head pieces)) = False
+	| y >= 4 = False
+	| x >= 5 = False
 	| otherwise = True
 
-neighbourIntersections :: Pieces -> Intersection -> [Intersection]
-neighbourIntersections pieces (x,y) =
-	filter (validIntersection pieces) [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+neighbourIntersections :: Intersection -> [Intersection]
+neighbourIntersections (x,y) =
+	filter validIntersection [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+
+roadLocationsFromIntersection ::  Intersection -> [Set.Set Intersection]
+roadLocationsFromIntersection i =
+	let 
+		singletonStarting = Set.singleton i
+	in
+		map (\intersection -> Set.insert intersection singletonStarting) 
+			(neighbourIntersections i)
+
+roadLeadingHere :: Roads -> Color -> Intersection -> Bool
+roadLeadingHere roads color intersection =
+	let
+		options = roadLocationsFromIntersection intersection
+		filled = filter 
+					(\location ->
+						let
+							piece = Map.lookup location roads
+						in case piece of
+							Just (Placed _ c) -> c == color
+							Nothing -> False)
+					options
+
+	in
+		length filled > 0
+
 
 pieceAt :: Pieces -> Intersection -> Maybe PlacedPiece
-pieceAt pieces (x,y) = do
-	row <- valueAt y pieces
-	piece <- valueAt x row
-	piece
+pieceAt pieces intersection  
+	| validIntersection intersection = Map.lookup intersection pieces
+	| otherwise = Nothing
+	
 
 emptyIntersection :: Pieces -> Intersection -> Bool
 emptyIntersection pieces intersection = case (pieceAt pieces intersection) of
 	Nothing -> True
 	_ -> False
 
-pieceValid :: Pieces -> Intersection -> Bool
-pieceValid pieces intersection = 
+-- Empty intersection + No adjacent pieces + user's color is leading here
+pieceValid :: Pieces -> Roads -> Color -> Intersection -> Bool
+pieceValid pieces roads color intersection = 
 	isNothing (pieceAt pieces intersection) &&
-	all (emptyIntersection pieces) (neighbourIntersections pieces intersection)
+	all (emptyIntersection pieces) (neighbourIntersections intersection) &&
+	roadLeadingHere roads color intersection
 
 
 claimResources :: Board -> Coins -> Robber -> Rolled -> Piece -> BoardSquare -> [Resource]
@@ -191,18 +233,19 @@ scorePlayer pieces cards =
 	(foldl (+) 0 $ map pieceValue pieces) + 
 	(foldl (+) 0 $ map cardValue cards)
 
-piecesPlayed :: Pieces -> Color -> [Piece]
-piecesPlayed pieces color = concatMap (\row -> 
-			let 
-				rowJust = catMaybes row
-				justColor = filter (\(Placed _ c) -> c == color) rowJust
-			in
-				map (\(Placed p _) -> p) justColor
-			) pieces
+piecesPlayed :: Pieces -> Color -> [PlacedPiece]
+piecesPlayed pieces color = Map.elems $ 
+	Map.filter (\(Placed _ c) ->  c == color) pieces
+
+playPiece :: Pieces -> Color -> Piece -> Intersection -> Pieces
+playPiece pieces color piece intersection
+	| emptyIntersection pieces intersection = 
+		Map.insert intersection (Placed piece color) pieces
+	| otherwise = pieces
 
 playerHasWon :: Int -> Bool
 playerHasWon 10 = True
-playerHasWon _ = False
+playerHasWon _ = False 
 
 createGame :: Int -> Game
 createGame numPlayers =
@@ -212,18 +255,17 @@ createGame numPlayers =
 	in
 		(createBoard, createCoins, createPieces, players)
 
+--pieceValid :: Pieces -> Roads -> Color -> Intersection -> Bool
 
 main :: IO () 
-
 main = 
 	let
 		board = createBoard
 		coins = createCoins
 		resources = getResourcesForIntersection board coins (3,2) 10 City (4,3)
-		pieces = [[(Just  (Placed City Blue)), Nothing],
-				  [Nothing, (Just (Placed Settlement Blue))],
-				  [Nothing, (Just (Placed City Red))]]
+		roads = createRoads
+		roads1 = Map.insert (roadLocationOf (1,0) (1,1)) (Placed RoadPiece Blue) roads
 	in do
-		print $ createGame 3
+		print $ pieceValid createPieces roads1 Blue (1,1)
 
 		
